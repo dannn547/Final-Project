@@ -1,0 +1,2077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Closing Price Time Series Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-statistics@7.8.3/dist/simple-statistics.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            background: #f8f9ff;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #eef0ff;
+            border-color: #764ba2;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .upload-text strong {
+            color: #667eea;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .info-label {
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #667eea;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .chart-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .legend-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        .legend-color.training {
+            background: #667eea;
+        }
+
+        .legend-color.testing {
+            background: #ff6b6b;
+        }
+
+        .legend-color.prediction {
+            background: #4caf50;
+            border-style: dashed;
+        }
+
+        .prediction-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .prediction-controls {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .control-group select,
+        .control-group input {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 120px;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-predict {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+        }
+
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .prediction-results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .result-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4caf50;
+        }
+
+        .model-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .model-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            background: #f8f9ff;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .model-checkbox:hover {
+            background: #eef0ff;
+        }
+
+        .model-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .error-message {
+            background: #ffe0e0;
+            color: #d32f2f;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff9e6;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .instructions h3 {
+            color: #f57c00;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .instructions ul {
+            color: #666;
+            font-size: 13px;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .model-details-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .model-details-section h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 1.5rem;
+        }
+
+        .model-category {
+            margin-bottom: 30px;
+        }
+
+        .model-category h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+            font-size: 1.2rem;
+        }
+
+        .model-detail-card {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .model-detail-card:hover {
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+            transform: translateX(5px);
+        }
+
+        .model-detail-card.advanced {
+            border-left-color: #4caf50;
+        }
+
+        .model-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .model-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .model-badge.simple {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .model-badge.advanced {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .model-formula {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #555;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .model-description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+
+        .model-params {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+        }
+
+        .param-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+
+        .param-item:last-child {
+            border-bottom: none;
+        }
+
+        .param-label {
+            color: #666;
+        }
+
+        .param-value {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .combination-method {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .combination-method h4 {
+            color: #f57c00;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .combination-formula {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #333;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .combination-desc {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Closing Price Time Series Analysis Tool</h1>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text">
+                    <strong>Click to Upload</strong> or Drag & Drop Excel File Here
+                </div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+            </div>
+            <div class="instructions">
+                <h3>📋 Excel File Format Requirements:</h3>
+                <ul>
+                    <li>Column 1: Date (Format: YYYY-MM-DD or YYYY/MM/DD)</li>
+                    <li>Column 2: Closing Price (Numeric value)</li>
+                    <li>First row can be header (e.g., Date, Closing Price)</li>
+                </ul>
+            </div>
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+
+        <div class="info-section" id="infoSection">
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Total Data Points</div>
+                    <div class="info-value" id="totalData">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Training Set (80%)</div>
+                    <div class="info-value" id="trainingData">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Testing Set (20%)</div>
+                    <div class="info-value" id="testingData">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Date Range</div>
+                    <div class="info-value" id="dateRange" style="font-size: 14px;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="prediction-section" id="predictionSection">
+            <h2 style="text-align: center; color: #333; margin-bottom: 20px;">Test Set Prediction (Use first 80% training to predict last 20%)</h2>
+            
+            <div class="prediction-controls">
+                <div class="control-group">
+                    <label>Dynamic Mean Window (k)</label>
+                    <input type="number" id="dynamicWindow" value="5" min="1" max="50">
+                </div>
+                <div class="control-group">
+                    <label>Seasonal Period (m)</label>
+                    <input type="number" id="seasonalPeriod" value="7" min="1" max="365">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; text-align: center; font-size: 12px; color: #666; text-transform: uppercase; font-weight: 600; margin-bottom: 10px;">Select Models for Combined Prediction</label>
+                <div class="model-checkboxes">
+                    <label class="model-checkbox">
+                        <input type="checkbox" value="naive" checked> Naive Model
+                    </label>
+                    <label class="model-checkbox">
+                        <input type="checkbox" value="seasonalNaive" checked> Seasonal Naive Model
+                    </label>
+                    <label class="model-checkbox">
+                        <input type="checkbox" value="mean" checked> Mean Model
+                    </label>
+                    <label class="model-checkbox">
+                        <input type="checkbox" value="drift" checked> Drift Model
+                    </label>
+                    <label class="model-checkbox">
+                        <input type="checkbox" value="dynamicMean" checked> Dynamic Mean Model
+                    </label>
+                    <label class="model-checkbox">
+                        <input type="checkbox" value="ar" checked> AR Model
+                    </label>
+                    <label class="model-checkbox">
+                        <input type="checkbox" value="stl" checked> STL Decomposition
+                    </label>
+                    <label class="model-checkbox">
+                        <input type="checkbox" value="rolling" checked> Rolling Mean
+                    </label>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-predict" id="predictBtn">Start Prediction & Compare</button>
+                <button class="btn btn-primary" id="exportBtn" style="display: none;">Export Predictions to Excel</button>
+            </div>
+
+            <div class="prediction-results" id="predictionResults">
+                <h3 style="text-align: center; color: #333; margin-bottom: 15px;">Prediction Evaluation Metrics</h3>
+                <div class="results-grid" id="resultsGrid"></div>
+            </div>
+        </div>
+
+        <div class="chart-section" id="chartSection">
+            <div class="chart-container">
+                <canvas id="priceChart"></canvas>
+            </div>
+            <div class="legend-info" id="legendInfo">
+                <div class="legend-item">
+                    <div class="legend-color training"></div>
+                    <span>Training Set (First 80%)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color testing"></div>
+                    <span>Testing Set (Last 20%)</span>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-secondary" id="resetZoom">Reset Zoom</button>
+                <button class="btn btn-primary" id="newFile">Upload New File</button>
+            </div>
+        </div>
+
+        <div class="model-details-section" id="modelDetailsSection">
+            <h2>📊 Model Prediction Logic Explained</h2>
+            
+            <!-- Simple Models -->
+            <div class="model-category">
+                <h3>🔹 Five Simple Prediction Models</h3>
+                
+                <div class="model-detail-card">
+                    <div class="model-name">
+                        Naive Model (Naive Model)
+                        <span class="model-badge simple">Simple</span>
+                    </div>
+                    <div class="model-formula">ŷ(t+h) = y(t)</div>
+                    <div class="model-description">
+                        The most basic forecasting method, assuming future values equal the last observed value. Suitable for stationary series without obvious trends and seasonality.
+                    </div>
+                    <div class="model-params">
+                        <div class="param-item">
+                            <span class="param-label">Prediction Logic</span>
+                            <span class="param-value">Last Observed Value Repeated</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Applicable Scenarios</span>
+                            <span class="param-value">Short-term Forecasting, Random Walk</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="model-detail-card">
+                    <div class="model-name">
+                        Seasonal Naive Model (Seasonal Naive)
+                        <span class="model-badge simple">Simple</span>
+                    </div>
+                    <div class="model-formula">ŷ(t+h) = y(t+h-m×k)</div>
+                    <div class="model-description">
+                        Uses seasonal patterns for prediction, assuming future values at a given time equal the observed value from the same time in the previous cycle. For example, to predict next Monday's value, use this Monday's value.
+                    </div>
+                    <div class="model-params">
+                        <div class="param-item">
+                            <span class="param-label">Prediction Logic</span>
+                            <span class="param-value">Same Period Historical Value</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Seasonal Period (m)</span>
+                            <span class="param-value" id="displaySeasonalPeriod">7</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Applicable Scenarios</span>
+                            <span class="param-value">Strong Seasonal Data</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="model-detail-card">
+                    <div class="model-name">
+                        Mean Model (Mean Model)
+                        <span class="model-badge simple">Simple</span>
+                    </div>
+                    <div class="model-formula">ŷ(t+h) = (1/n) × Σy(i), i=1 to n</div>
+                    <div class="model-description">
+                        Uses the average of all historical data as the prediction. Assumes data fluctuates around a stable mean, ignoring trends and seasonality.
+                    </div>
+                    <div class="model-params">
+                        <div class="param-item">
+                            <span class="param-label">Prediction Logic</span>
+                            <span class="param-value">Global Average</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Applicable Scenarios</span>
+                            <span class="param-value">Stationary Series, No Obvious Trend</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="model-detail-card">
+                    <div class="model-name">
+                        Drift Model (Drift Model)
+                        <span class="model-badge simple">Simple</span>
+                    </div>
+                    <div class="model-formula">ŷ(t+h) = y(t) + h × [(y(n) - y(1)) / (n-1)]</div>
+                    <div class="model-description">
+                        Adds a linear trend (drift term) to the Naive Model. Assumes data changes at a constant rate, determined by the slope between first and last observations.
+                    </div>
+                    <div class="model-params">
+                        <div class="param-item">
+                            <span class="param-label">Prediction Logic</span>
+                            <span class="param-value">Last Value + Linear Trend</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Drift Rate</span>
+                            <span class="param-value">(Last-First)/(n-1)</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Applicable Scenarios</span>
+                            <span class="param-value">Data with Stable Trend</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="model-detail-card">
+                    <div class="model-name">
+                        Dynamic Mean Model (Dynamic Mean / Rolling Mean)
+                        <span class="model-badge simple">Simple</span>
+                    </div>
+                    <div class="model-formula">ŷ(t+h) = (1/k) × Σy(i), i=t-k+1 to t</div>
+                    <div class="model-description">
+                        Uses rolling average of the last k observations for prediction. Compared to global mean, better captures recent changes and is more sensitive to data variations.
+                    </div>
+                    <div class="model-params">
+                        <div class="param-item">
+                            <span class="param-label">Prediction Logic</span>
+                            <span class="param-value">Rolling Window Average</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Window Size (k)</span>
+                            <span class="param-value" id="displayDynamicWindow">5</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Applicable Scenarios</span>
+                            <span class="param-value">Locally Stationary, Short-term Fluctuations</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Models -->
+            <div class="model-category">
+                <h3>🔸 Three Advanced Prediction Models</h3>
+                
+                <div class="model-detail-card advanced">
+                    <div class="model-name">
+                        AR(p) AutoRegressive Model
+                        <span class="model-badge advanced">Advanced</span>
+                    </div>
+                    <div class="model-formula">ŷ(t) = c + φ₁×y(t-1) + φ₂×y(t-2) + ... + φₚ×y(t-p) + ε(t)</div>
+                    <div class="model-description">
+                        Automatically selects optimal order p based on PACF (Partial Autocorrelation Function). Computes PACF using Durbin-Levinson algorithm, selecting the last lag exceeding 95% confidence interval as p. Uses least squares to estimate model parameters.
+                    </div>
+                    <div class="model-params">
+                        <div class="param-item">
+                            <span class="param-label">Order Selection</span>
+                            <span class="param-value">PACF Significance Test (α=0.05)</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Max Search Order</span>
+                            <span class="param-value">30</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Actual Order (p)</span>
+                            <span class="param-value" id="displayARP">Auto-selected</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Parameter Estimation</span>
+                            <span class="param-value">Multiple Linear Regression (OLS)</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Applicable Scenarios</span>
+                            <span class="param-value">Time Series with Strong Autocorrelation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="model-detail-card advanced">
+                    <div class="model-name">
+                        STL Decomposition Extrapolation
+                        <span class="model-badge advanced">Advanced</span>
+                    </div>
+                    <div class="model-formula">y(t) = Trend(t) + Seasonal(t) + Residual(t)</div>
+                    <div class="model-description">
+                        Decomposes time series into trend, seasonal, and residual components. Trend extracted via moving average, seasonal component calculated from complete cycle averages. Components are extrapolated separately then combined: trend via linear regression, seasonal using corresponding cycle values.
+                    </div>
+                    <div class="model-params">
+                        <div class="param-item">
+                            <span class="param-label">Decomposition Method</span>
+                            <span class="param-value">Moving Average + Cycle Average</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Trend Extraction</span>
+                            <span class="param-value">Centered Moving Average (window=m)</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Seasonal Period (m)</span>
+                            <span class="param-value" id="displaySTLM">7</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Trend Extrapolation</span>
+                            <span class="param-value">Linear Regression (Last 20 Points)</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Applicable Scenarios</span>
+                            <span class="param-value">Data with Clear Trend and Seasonality</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="model-detail-card advanced">
+                    <div class="model-name">
+                        Dynamic Rolling Mean (Dynamic Rolling Mean)
+                        <span class="model-badge advanced">Advanced</span>
+                    </div>
+                    <div class="model-formula">ŷ(t+1) = (1/k) × Σy(i), i=t-k+1 to t</div>
+                    <div class="model-description">
+                        Uses rolling mean with specified window size for one-step prediction. Similar to Dynamic Mean Model but participates in combined prediction as an independent advanced method. Window size can be adjusted based on data characteristics - larger windows smoother, smaller windows more responsive.
+                    </div>
+                    <div class="model-params">
+                        <div class="param-item">
+                            <span class="param-label">Prediction Logic</span>
+                            <span class="param-value">Sliding Window Average</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Window Size (k)</span>
+                            <span class="param-value" id="displayMAK">20</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-label">Applicable Scenarios</span>
+                            <span class="param-value">Noisy Data Requiring Smoothing</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Combination Method -->
+            <div class="combination-method">
+                <h4>🎯 Combined Prediction Strategy</h4>
+                <div class="combination-formula">
+                    Final Prediction = 0.7 × Advanced Model Mean + 0.3 × Simple Model Mean
+                </div>
+                <div class="combination-desc">
+                    <strong>Advanced Model Combination:</strong> AR(p) + STL Decomposition + Dynamic Rolling Mean (fixed weights 1/3 each)<br>
+                    <strong>Simple Model Combination:</strong> User-selected models (Naive/Seasonal Naive/Mean/Drift/Dynamic Mean), equal weight average<br>
+                    <strong>Weighted Fusion:</strong> 70% weight to advanced models, 30% to simple models, balancing complex pattern capture ability with simple model stability
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let rawData = [];
+        let trainingData = [];
+        let testingData = [];
+        let forecastData = [];
+        let currentAROrder = 1; // Store current AR model order
+        let lastPredictions = null; // Store final prediction results
+        let lastSelectedModels = []; // Store last selected models
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const errorMessage = document.getElementById('errorMessage');
+        const infoSection = document.getElementById('infoSection');
+        const chartSection = document.getElementById('chartSection');
+        const predictionSection = document.getElementById('predictionSection');
+        const legendInfo = document.getElementById('legendInfo');
+        const modelDetailsSection = document.getElementById('modelDetailsSection');
+
+        // Click upload area
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        // Drag and drop events
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        // Process file
+        function handleFile(file) {
+            hideError();
+
+            const validTypes = [
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-excel',
+                'text/csv'
+            ];
+
+            if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
+                showError('Please upload a valid Excel file (.xlsx, .xls) or CSV file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                    processData(jsonData);
+                } catch (error) {
+                    showError('File parsing failed: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Process data
+        function processData(data) {
+            if (data.length < 2) {
+                showError('Insufficient data. Please ensure the Excel file contains at least two rows of data');
+                return;
+            }
+
+            // Try to identify header
+            let startIndex = 0;
+            const firstRow = data[0];
+            if (typeof firstRow[0] === 'string' && isNaN(parseFloat(firstRow[1]))) {
+                startIndex = 1; // Skip header
+            }
+
+            const parsedData = [];
+            for (let i = startIndex; i < data.length; i++) {
+                const row = data[i];
+                if (row.length >= 2) {
+                    const date = parseDate(row[0]);
+                    const price = parseFloat(row[1]);
+
+                    if (date && !isNaN(price)) {
+                        parsedData.push({ date, price });
+                    }
+                }
+            }
+
+            if (parsedData.length < 2) {
+                showError('Unable to parse valid data. Please check if the file format is correct');
+                return;
+            }
+
+            // Sort by date
+            parsedData.sort((a, b) => a.date - b.date);
+
+            rawData = parsedData;
+            
+            // Split training and testing sets
+            const total = parsedData.length;
+            const trainingSize = Math.floor(total * 0.8);
+            trainingData = parsedData.slice(0, trainingSize);
+            testingData = parsedData.slice(trainingSize);
+            
+            forecastData = [];
+            
+            displayInfo(parsedData);
+            createChart(parsedData);
+
+            infoSection.style.display = 'block';
+            predictionSection.style.display = 'block';
+            chartSection.style.display = 'block';
+            modelDetailsSection.style.display = 'block';
+        }
+
+        // Parse date
+        function parseDate(value) {
+            if (value instanceof Date) {
+                return value;
+            }
+
+            if (typeof value === 'number') {
+                // Excel date serial number
+                return new Date((value - 25569) * 86400 * 1000);
+            }
+
+            if (typeof value === 'string') {
+                // Try multiple date formats
+                const formats = [
+                    /(\d{4})[-/](\d{1,2})[-/](\d{1,2})/,
+                    /(\d{1,2})[-/](\d{1,2})[-/](\d{4})/
+                ];
+
+                for (const format of formats) {
+                    const match = value.match(format);
+                    if (match) {
+                        let year, month, day;
+                        if (match[1].length === 4) {
+                            year = parseInt(match[1]);
+                            month = parseInt(match[2]) - 1;
+                            day = parseInt(match[3]);
+                        } else {
+                            month = parseInt(match[1]) - 1;
+                            day = parseInt(match[2]);
+                            year = parseInt(match[3]);
+                        }
+                        const date = new Date(year, month, day);
+                        if (!isNaN(date.getTime())) {
+                            return date;
+                        }
+                    }
+                }
+
+                const date = new Date(value);
+                if (!isNaN(date.getTime())) {
+                    return date;
+                }
+            }
+
+            return null;
+        }
+
+        // Display information
+        function displayInfo(data) {
+            const total = data.length;
+            const trainingSize = Math.floor(total * 0.8);
+            const testingSize = total - trainingSize;
+
+            document.getElementById('totalData').textContent = total;
+            document.getElementById('trainingData').textContent = trainingSize;
+            document.getElementById('testingData').textContent = testingSize;
+
+            const startDate = formatDate(data[0].date);
+            const endDate = formatDate(data[data.length - 1].date);
+            document.getElementById('dateRange').textContent = `${startDate} to ${endDate}`;
+        }
+
+        // Format date
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // Create chart
+        function createChart(data) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+
+            const total = data.length;
+            const trainingSize = Math.floor(total * 0.8);
+
+            const labels = data.map(d => formatDate(d.date));
+            const prices = data.map(d => d.price);
+
+            // Create training and testing datasets
+            const trainingPrices = [...prices.slice(0, trainingSize)];
+            const testingPrices = [...Array(trainingSize).fill(null), ...prices.slice(trainingSize)];
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Training Set (First 80%)',
+                            data: trainingPrices,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Testing Set (Last 20%)',
+                            data: testingPrices,
+                            borderColor: '#ff6b6b',
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                title: function(context) {
+                                    return 'Date: ' + context[0].label;
+                                },
+                                label: function(context) {
+                                    return context.dataset.label + ': ¥' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false
+                        },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x'
+                            },
+                            zoom: {
+                                wheel: {
+                                    enabled: true
+                                },
+                                pinch: {
+                                    enabled: true
+                                },
+                                mode: 'x'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Closing Price (¥)'
+                            },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Reset Zoom
+        document.getElementById('resetZoom').addEventListener('click', () => {
+            if (chart) {
+                chart.resetZoom();
+            }
+        });
+
+        // Upload New File
+        document.getElementById('newFile').addEventListener('click', () => {
+            fileInput.value = '';
+            infoSection.style.display = 'none';
+            chartSection.style.display = 'none';
+            hideError();
+        });
+
+        // Show error
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        // Hide error
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+
+        // ==================== Prediction Algorithm Implementation ====================
+
+        // 1. AR(p) AutoRegressive Model
+        function fitARModel(trainingData, maxLag = 30) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+
+            // Calculate mean
+            const mean = prices.reduce((a, b) => a + b, 0) / n;
+
+            // Calculate autocovariance
+            function autocovariance(lag) {
+                let sum = 0;
+                for (let i = lag; i < n; i++) {
+                    sum += (prices[i] - mean) * (prices[i - lag] - mean);
+                }
+                return sum / n;
+            }
+
+            // Calculate autocorrelation
+            function autocorrelation(lag) {
+                return autocovariance(lag) / autocovariance(0);
+            }
+
+            // Use Durbin-Levinson algorithm to compute PACF
+            function computePACF(maxLag) {
+                const pacf = [];
+                const phi = [];
+
+                for (let k = 1; k <= maxLag; k++) {
+                    if (k === 1) {
+                        phi[1] = autocorrelation(1);
+                        pacf.push(phi[1]);
+                    } else {
+                        let numerator = autocorrelation(k);
+                        let denominator = 1;
+
+                        for (let j = 1; j < k; j++) {
+                            numerator -= phi[j] * autocorrelation(k - j);
+                        }
+
+                        for (let j = 1; j < k; j++) {
+                            denominator -= phi[j] * autocorrelation(j);
+                        }
+
+                        const phiNew = numerator / denominator;
+
+                        // Update coefficients
+                        const phiOld = [...phi];
+                        for (let j = 1; j < k; j++) {
+                            phi[j] = phiOld[j] - phiNew * phiOld[k - j];
+                        }
+                        phi[k] = phiNew;
+
+                        pacf.push(phiNew);
+                    }
+                }
+
+                return pacf;
+            }
+
+            // Compute PACF
+            const pacfValues = computePACF(maxLag);
+
+            // Calculate significance boundary (95% confidence interval)
+            const significanceLevel = 1.96 / Math.sqrt(n);
+
+            // Automatically select order p: take the last lag exceeding significance boundary
+            let p = 1;
+            for (let i = pacfValues.length - 1; i >= 0; i--) {
+                if (Math.abs(pacfValues[i]) > significanceLevel) {
+                    p = i + 1;
+                    break;
+                }
+            }
+
+            // Limit p range
+            p = Math.min(p, 20);
+            p = Math.max(p, 1);
+
+            // Save AR order for display
+            currentAROrder = p;
+
+            console.log(`AR model selected order p=${p}, PACF significance boundary=${significanceLevel.toFixed(4)}`);
+
+            // Build linear regression data
+            const X = [];
+            const y = [];
+
+            for (let i = p; i < n; i++) {
+                const row = [1]; // Intercept term
+                for (let j = 1; j <= p; j++) {
+                    row.push(prices[i - j]);
+                }
+                X.push(row);
+                y.push(prices[i]);
+            }
+
+            // Fit using least squares method
+            const coefficients = linearRegression(X, y);
+
+            return {
+                p: p,
+                coefficients: coefficients,
+                lastValues: prices.slice(-p)
+            };
+        }
+
+        // Multiple linear regression
+        function linearRegression(X, y) {
+            const n = X.length;
+            const p = X[0].length;
+
+            // X^T * X
+            const XtX = [];
+            for (let i = 0; i < p; i++) {
+                XtX[i] = [];
+                for (let j = 0; j < p; j++) {
+                    let sum = 0;
+                    for (let k = 0; k < n; k++) {
+                        sum += X[k][i] * X[k][j];
+                    }
+                    XtX[i][j] = sum;
+                }
+            }
+
+            // X^T * y
+            const Xty = [];
+            for (let i = 0; i < p; i++) {
+                let sum = 0;
+                for (let k = 0; k < n; k++) {
+                    sum += X[k][i] * y[k];
+                }
+                Xty[i] = sum;
+            }
+
+            // Solve using Gaussian elimination
+            return gaussianElimination(XtX, Xty);
+        }
+
+        // Gaussian elimination
+        function gaussianElimination(A, b) {
+            const n = A.length;
+
+            // Augmented matrix
+            for (let i = 0; i < n; i++) {
+                A[i].push(b[i]);
+            }
+
+            // Forward elimination
+            for (let i = 0; i < n; i++) {
+                // Find pivot
+                let maxRow = i;
+                for (let j = i + 1; j < n; j++) {
+                    if (Math.abs(A[j][i]) > Math.abs(A[maxRow][i])) {
+                        maxRow = j;
+                    }
+                }
+
+                // Swap rows
+                [A[i], A[maxRow]] = [A[maxRow], A[i]];
+
+                // Elimination
+                for (let j = i + 1; j < n; j++) {
+                    const factor = A[j][i] / A[i][i];
+                    for (let k = i; k <= n; k++) {
+                        A[j][k] -= factor * A[i][k];
+                    }
+                }
+            }
+
+            // Back substitution
+            const x = new Array(n);
+            for (let i = n - 1; i >= 0; i--) {
+                let sum = A[i][n];
+                for (let j = i + 1; j < n; j++) {
+                    sum -= A[i][j] * x[j];
+                }
+                x[i] = sum / A[i][i];
+            }
+
+            return x;
+        }
+
+        // AR model prediction
+        function predictAR(model, steps) {
+            const predictions = [];
+            let values = [...model.lastValues];
+
+            for (let step = 0; step < steps; step++) {
+                let pred = model.coefficients[0]; // Intercept
+                for (let j = 1; j <= model.p; j++) {
+                    pred += model.coefficients[j] * values[values.length - j];
+                }
+                predictions.push(pred);
+                values.push(pred);
+            }
+
+            return predictions;
+        }
+
+        // 2. STL Decomposition Extrapolation
+        function stlDecomposition(trainingData, seasonalPeriod = 7) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+
+            // Simplified STL decomposition
+            // Step 1: Extract trend component (using moving average)
+            const trend = [];
+            const halfWindow = Math.floor(seasonalPeriod / 2);
+
+            for (let i = 0; i < n; i++) {
+                if (i < halfWindow || i >= n - halfWindow) {
+                    trend.push(null);
+                } else {
+                    let sum = 0;
+                    for (let j = -halfWindow; j <= halfWindow; j++) {
+                        sum += prices[i + j];
+                    }
+                    trend.push(sum / seasonalPeriod);
+                }
+            }
+
+            // Fill boundary values
+            for (let i = 0; i < halfWindow; i++) {
+                trend[i] = trend[halfWindow];
+            }
+            for (let i = n - halfWindow; i < n; i++) {
+                trend[i] = trend[n - halfWindow - 1];
+            }
+
+            // Step 2: Detrend
+            const detrended = prices.map((p, i) => p - trend[i]);
+
+            // Step 3: Extract seasonal component
+            const seasonal = new Array(n).fill(0);
+            const numCompleteCycles = Math.floor(n / seasonalPeriod);
+
+            for (let cycle = 0; cycle < numCompleteCycles; cycle++) {
+                for (let s = 0; s < seasonalPeriod; s++) {
+                    const idx = cycle * seasonalPeriod + s;
+                    if (idx < n) {
+                        seasonal[idx] = detrended[idx];
+                    }
+                }
+            }
+
+            // Average for each seasonal position
+            const seasonalAvg = new Array(seasonalPeriod).fill(0);
+            for (let s = 0; s < seasonalPeriod; s++) {
+                let sum = 0;
+                let count = 0;
+                for (let cycle = 0; cycle < numCompleteCycles; cycle++) {
+                    const idx = cycle * seasonalPeriod + s;
+                    if (idx < n) {
+                        sum += seasonal[idx];
+                        count++;
+                    }
+                }
+                seasonalAvg[s] = count > 0 ? sum / count : 0;
+            }
+
+            // Apply seasonal component
+            for (let i = 0; i < n; i++) {
+                seasonal[i] = seasonalAvg[i % seasonalPeriod];
+            }
+
+            // Step 4: Residual component
+            const residual = prices.map((p, i) => p - trend[i] - seasonal[i]);
+
+            return {
+                trend: trend,
+                seasonal: seasonal,
+                residual: residual,
+                seasonalPeriod: seasonalPeriod,
+                lastTrendValues: trend.slice(-20),
+                lastSeasonalCycle: seasonal.slice(-seasonalPeriod)
+            };
+        }
+
+        // STL prediction
+        function predictSTL(stlResult, steps) {
+            const trend = stlResult.lastTrendValues.filter(v => v !== null);
+            const n = trend.length;
+
+            // Use last 20 trend values for linear regression
+            const X = [];
+            const y = [];
+            for (let i = 0; i < n; i++) {
+                X.push([1, i + 1]);
+                y.push(trend[i]);
+            }
+
+            const coeffs = linearRegression(X, y);
+            const trendForecast = coeffs[0] + coeffs[1] * (n + 1);
+
+            // Seasonal component: use corresponding position from last complete cycle
+            const seasonalForecast = stlResult.lastSeasonalCycle[0];
+
+            return trendForecast + seasonalForecast;
+        }
+
+        // 3. Dynamic Rolling Mean
+        function predictDynamicMean(trainingData, window = 20) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+
+            // Take average of last window values
+            const startIdx = Math.max(0, n - window);
+            const lastValues = prices.slice(startIdx);
+            const mean = lastValues.reduce((a, b) => a + b, 0) / lastValues.length;
+
+            return mean;
+        }
+
+        // 4. Naive Model
+        function predictNaive(trainingData, steps) {
+            const lastPrice = trainingData[trainingData.length - 1].price;
+            return Array(steps).fill(lastPrice);
+        }
+
+        // 5. Seasonal Naive Model
+        function predictSeasonalNaive(trainingData, steps, seasonalPeriod = 7) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+            const predictions = [];
+
+            for (let h = 1; h <= steps; h++) {
+                const idx = n - seasonalPeriod + ((h - 1) % seasonalPeriod);
+                predictions.push(prices[idx]);
+            }
+
+            return predictions;
+        }
+
+        // 6. Mean Model
+        function predictMean(trainingData, steps) {
+            const prices = trainingData.map(d => d.price);
+            const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+            return Array(steps).fill(mean);
+        }
+
+        // 7. Drift Model
+        function predictDrift(trainingData, steps) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+            const firstPrice = prices[0];
+            const lastPrice = prices[n - 1];
+            const drift = (lastPrice - firstPrice) / (n - 1);
+
+            const predictions = [];
+            for (let h = 1; h <= steps; h++) {
+                predictions.push(lastPrice + h * drift);
+            }
+
+            return predictions;
+        }
+
+        // 8. Dynamic Mean Model (rolling window)
+        function predictDynamicMeanModel(trainingData, steps, window = 5) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+            const predictions = [];
+
+            for (let h = 0; h < steps; h++) {
+                const startIdx = Math.max(0, n - window);
+                const windowPrices = prices.slice(startIdx);
+                const mean = windowPrices.reduce((a, b) => a + b, 0) / windowPrices.length;
+                predictions.push(mean);
+            }
+
+            return predictions;
+        }
+
+        // ==================== One-step Prediction Functions (for test set prediction) ====================
+
+        // Predict single time point using fixed training set
+        function predictOneStep(trainingData, stepIndex, config) {
+            const { dynamicWindow = 5, seasonalPeriod = 7 } = config;
+
+            // 1. Naive Model
+            const naive = predictNaiveSingle(trainingData);
+
+            // 2. Seasonal Naive Model
+            const seasonalNaive = predictSeasonalNaiveSingle(trainingData, seasonalPeriod);
+
+            // 3. Mean Model
+            const mean = predictMeanSingle(trainingData);
+
+            // 4. Drift Model
+            const drift = predictDriftSingle(trainingData);
+
+            // 5. Dynamic Mean Model
+            const dynamicMean = predictDynamicMeanSingle(trainingData, dynamicWindow);
+
+            // 6. AR Model
+            const arModel = fitARModel(trainingData);
+            const ar = predictAR(arModel, 1)[0];
+
+            // 7. STL Decomposition
+            const stlResult = stlDecomposition(trainingData, seasonalPeriod);
+            const stl = predictSTL(stlResult, 1);
+
+            // 8. Rolling Mean
+            const rolling = predictDynamicMean(trainingData, dynamicWindow);
+
+            return {
+                naive,
+                seasonalNaive,
+                mean,
+                drift,
+                dynamicMean,
+                ar,
+                stl,
+                rolling
+            };
+        }
+
+        // Naive Model - Single Step
+        function predictNaiveSingle(trainingData) {
+            return trainingData[trainingData.length - 1].price;
+        }
+
+        // Seasonal Naive Model - Single Step
+        function predictSeasonalNaiveSingle(trainingData, seasonalPeriod) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+            const idx = n - seasonalPeriod;
+            return idx >= 0 ? prices[idx] : prices[n - 1];
+        }
+
+        // Mean Model - Single Step
+        function predictMeanSingle(trainingData) {
+            const prices = trainingData.map(d => d.price);
+            return prices.reduce((a, b) => a + b, 0) / prices.length;
+        }
+
+        // Drift Model - Single Step
+        function predictDriftSingle(trainingData) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+            const firstPrice = prices[0];
+            const lastPrice = prices[n - 1];
+            const drift = (lastPrice - firstPrice) / (n - 1);
+            return lastPrice + drift;
+        }
+
+        // Dynamic Mean Model - Single Step
+        function predictDynamicMeanSingle(trainingData, window) {
+            const prices = trainingData.map(d => d.price);
+            const n = prices.length;
+            const startIdx = Math.max(0, n - window);
+            const windowPrices = prices.slice(startIdx);
+            return windowPrices.reduce((a, b) => a + b, 0) / windowPrices.length;
+        }
+
+        // ==================== Test Set Prediction ====================
+
+        function forecastTestSet(trainingData, testingData, config) {
+            const predictions = {
+                naive: [],
+                seasonalNaive: [],
+                mean: [],
+                drift: [],
+                dynamicMean: [],
+                ar: [],
+                stl: [],
+                rolling: [],
+                combined: []
+            };
+
+            // Predict each point in test set (using rolling window)
+            for (let t = 0; t < testingData.length; t++) {
+                // Current available training data (including previous test points)
+                const currentTraining = [...trainingData, ...testingData.slice(0, t)];
+
+                // Get predictions from all models
+                const preds = predictOneStep(currentTraining, t, config);
+
+                // Store predictions from each model
+                predictions.naive.push(preds.naive);
+                predictions.seasonalNaive.push(preds.seasonalNaive);
+                predictions.mean.push(preds.mean);
+                predictions.drift.push(preds.drift);
+                predictions.dynamicMean.push(preds.dynamicMean);
+                predictions.ar.push(preds.ar);
+                predictions.stl.push(preds.stl);
+                predictions.rolling.push(preds.rolling);
+
+                // Calculate combined prediction: 70% advanced models + 30% simple models
+                const advancedMean = (preds.ar + preds.stl + preds.rolling) / 3;
+                const simpleMean = (preds.naive + preds.seasonalNaive + preds.mean + preds.drift + preds.dynamicMean) / 5;
+                const combined = 0.7 * advancedMean + 0.3 * simpleMean;
+                predictions.combined.push(combined);
+            }
+
+            return predictions;
+        }
+
+        // Calculate evaluation metrics
+        function calculateMetrics(actual, predicted) {
+            const n = actual.length;
+
+            // RMSE
+            const rmse = Math.sqrt(
+                actual.reduce((sum, a, i) => sum + Math.pow(a - predicted[i], 2), 0) / n
+            );
+
+            // MAE
+            const mae = actual.reduce((sum, a, i) => sum + Math.abs(a - predicted[i]), 0) / n;
+
+            // MAPE
+            const mape = actual.reduce((sum, a, i) => {
+                if (a !== 0) {
+                    return sum + Math.abs((a - predicted[i]) / a);
+                }
+                return sum;
+            }, 0) / n * 100;
+
+            return { rmse, mae, mape };
+        }
+
+        // Start prediction button event
+        document.getElementById('predictBtn').addEventListener('click', () => {
+            if (rawData.length === 0) {
+                showError('Please upload a data file first');
+                return;
+            }
+
+            const dynamicWindow = parseInt(document.getElementById('dynamicWindow').value);
+            const seasonalPeriod = parseInt(document.getElementById('seasonalPeriod').value);
+
+            // Get selected models
+            const selectedModels = Array.from(document.querySelectorAll('.model-checkbox input:checked'))
+                .map(cb => cb.value);
+
+            if (selectedModels.length === 0) {
+                showError('Please select at least one model');
+                return;
+            }
+
+            // Execute test set prediction
+            const predictions = forecastTestSet(trainingData, testingData, {
+                dynamicWindow,
+                seasonalPeriod
+            });
+
+            // Calculate evaluation metrics for each model
+            const actualValues = testingData.map(d => d.price);
+            const metrics = {};
+
+            if (selectedModels.includes('naive')) {
+                metrics.naive = calculateMetrics(actualValues, predictions.naive);
+            }
+            if (selectedModels.includes('seasonalNaive')) {
+                metrics.seasonalNaive = calculateMetrics(actualValues, predictions.seasonalNaive);
+            }
+            if (selectedModels.includes('mean')) {
+                metrics.mean = calculateMetrics(actualValues, predictions.mean);
+            }
+            if (selectedModels.includes('drift')) {
+                metrics.drift = calculateMetrics(actualValues, predictions.drift);
+            }
+            if (selectedModels.includes('dynamicMean')) {
+                metrics.dynamicMean = calculateMetrics(actualValues, predictions.dynamicMean);
+            }
+            if (selectedModels.includes('ar')) {
+                metrics.ar = calculateMetrics(actualValues, predictions.ar);
+            }
+            if (selectedModels.includes('stl')) {
+                metrics.stl = calculateMetrics(actualValues, predictions.stl);
+            }
+            if (selectedModels.includes('rolling')) {
+                metrics.rolling = calculateMetrics(actualValues, predictions.rolling);
+            }
+            if (selectedModels.includes('combined')) {
+                metrics.combined = calculateMetrics(actualValues, predictions.combined);
+            }
+
+            // Display results
+            displayPredictionResults(predictions, metrics, selectedModels);
+
+            // Update chart
+            updateChartWithPredictions(predictions, selectedModels);
+
+            // Update model parameter display
+            updateModelParameters(dynamicWindow, seasonalPeriod);
+
+            // Save prediction results for export
+            lastPredictions = predictions;
+            lastSelectedModels = selectedModels;
+
+            // Show export button
+            document.getElementById('exportBtn').style.display = 'block';
+        });
+
+        // Display prediction results
+        function displayPredictionResults(predictions, metrics, selectedModels) {
+            const resultsSection = document.getElementById('predictionResults');
+            const resultsGrid = document.getElementById('resultsGrid');
+
+            let html = '';
+
+            // Display evaluation metrics for each model
+            if (selectedModels.includes('naive')) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Naive Model RMSE</div>
+                        <div class="result-value">${metrics.naive.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (selectedModels.includes('seasonalNaive')) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Seasonal Naive RMSE</div>
+                        <div class="result-value">${metrics.seasonalNaive.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (selectedModels.includes('mean')) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Mean Model RMSE</div>
+                        <div class="result-value">${metrics.mean.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (selectedModels.includes('drift')) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Drift Model RMSE</div>
+                        <div class="result-value">${metrics.drift.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (selectedModels.includes('dynamicMean')) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Dynamic Mean RMSE</div>
+                        <div class="result-value">${metrics.dynamicMean.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (selectedModels.includes('ar')) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">AR Model RMSE</div>
+                        <div class="result-value">${metrics.ar.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (selectedModels.includes('stl')) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">STL Decomposition RMSE</div>
+                        <div class="result-value">${metrics.stl.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (selectedModels.includes('rolling')) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Rolling Mean RMSE</div>
+                        <div class="result-value">${metrics.rolling.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (selectedModels.includes('combined')) {
+                html += `
+                    <div class="result-item" style="border: 2px solid #4caf50;">
+                        <div class="result-label">Combined Prediction RMSE</div>
+                        <div class="result-value" style="color: #4caf50;">${metrics.combined.rmse.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+
+            resultsGrid.innerHTML = html;
+            resultsSection.style.display = 'block';
+        }
+
+        // Update model parameter display
+        function updateModelParameters(dynamicWindow, seasonalPeriod) {
+            document.getElementById('displayDynamicWindow').textContent = dynamicWindow;
+            document.getElementById('displaySeasonalPeriod').textContent = seasonalPeriod;
+            document.getElementById('displaySTLM').textContent = seasonalPeriod;
+            document.getElementById('displayMAK').textContent = dynamicWindow;
+            document.getElementById('displayARP').textContent = currentAROrder;
+        }
+
+        // Update chart to display prediction results (only show combined prediction line and actual values)
+        function updateChartWithPredictions(predictions, selectedModels) {
+            if (!chart) return;
+
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            const total = rawData.length;
+            const trainingSize = Math.floor(total * 0.8);
+
+            // Prepare data
+            const labels = rawData.map(d => formatDate(d.date));
+            const actualPrices = rawData.map(d => d.price);
+
+            // Training and testing set data
+            const trainingPrices = [...actualPrices.slice(0, trainingSize), ...Array(testingData.length).fill(null)];
+            const testingPrices = [...Array(trainingSize).fill(null), ...actualPrices.slice(trainingSize)];
+
+            // Combined prediction data
+            const combinedPredData = [...Array(trainingSize).fill(null), ...predictions.combined];
+
+            // Build datasets - only show training set, test set actual values and combined prediction
+            const datasets = [
+                {
+                    label: 'Training Set (First 80%)',
+                    data: trainingPrices,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    fill: false,
+                    tension: 0.1
+                },
+                {
+                    label: 'Test Set Actual Values (Last 20%)',
+                    data: testingPrices,
+                    borderColor: '#ff6b6b',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#ff6b6b',
+                    fill: false,
+                    tension: 0.1
+                },
+                {
+                    label: 'Combined Prediction (70% Advanced + 30% Simple)',
+                    data: combinedPredData,
+                    borderColor: '#4caf50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [10, 5],
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#4caf50',
+                    fill: false,
+                    tension: 0.1
+                }
+            ];
+
+            // Destroy old chart
+            chart.destroy();
+
+            // Create new chart
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                title: function(context) {
+                                    return 'Date: ' + context[0].label;
+                                },
+                                label: function(context) {
+                                    if (context.parsed.y !== null) {
+                                        return context.dataset.label + ': ¥' + context.parsed.y.toFixed(2);
+                                    }
+                                    return null;
+                                }
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Closing Price (¥)'
+                            },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==================== Excel Export Functionality ====================
+
+        // Export button event
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            if (!lastPredictions || lastSelectedModels.length === 0) {
+                showError('Please perform prediction first');
+                return;
+            }
+            exportPredictionsToExcel();
+        });
+
+        // Export predictions to Excel (only includes date and combined prediction values)
+        function exportPredictionsToExcel() {
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+
+            // Prepare data: first column date, second column combined prediction value
+            const exportData = [];
+
+            // Add header
+            const header = ['date', 'y'];
+            exportData.push(header);
+
+            // Add data rows - only include test set dates and combined prediction values
+            for (let i = 0; i < testingData.length; i++) {
+                const row = [
+                    formatDate(testingData[i].date),
+                    lastPredictions.combined[i]
+                ];
+                exportData.push(row);
+            }
+
+            // Create worksheet
+            const ws = XLSX.utils.aoa_to_sheet(exportData);
+
+            // Set column width
+            ws['!cols'] = [
+                { wch: 15 }, // Date column
+                { wch: 15 }  // Combined prediction value column
+            ];
+
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Combined Prediction Results');
+
+            // Generate filename (with timestamp)
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            const fileName = `Combined Prediction Results_${timestamp}.xlsx`;
+
+            // Download file
+            XLSX.writeFile(wb, fileName);
+        }
+    </script>
+</body>
+</html>
